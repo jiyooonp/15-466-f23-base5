@@ -51,20 +51,9 @@ Load<WalkMeshes> phonebank_walkmeshes(LoadTagDefault, []() -> WalkMeshes const *
 
 PlayMode::PlayMode() : scene(*phonebank_scene)
 {
-	// std::cout << "vert"<<std::endl;
-	// for (auto v : walkmesh->vertices)
-	// {
-	// 	std::cout << v[0] << ", " << v[1] <<", " << v[2] << std::endl;
-	// }
-	// std::cout << "tri" << std::endl;
-	// for (auto v : walkmesh->triangles)
-	// {
-	// 	std::cout << v[0] << ", " << v[1] << ", " << v[2] << std::endl;
-	// }
+	// initialize start position
+	std::mt19937 mt(static_cast<std::mt19937::result_type>(std::time(nullptr)));
 
-	// initialize start position 
-	std::mt19937 mt;
-	mt.seed(std::random_device()());
 	std::uniform_int_distribution<int> player_start_triangle_rand(0, walkmesh->triangles.size()-1);
 
 	player_start_at = walkmesh->triangles[player_start_triangle_rand(mt)];
@@ -80,13 +69,11 @@ PlayMode::PlayMode() : scene(*phonebank_scene)
 	}
 	if (jelly == nullptr)
 		throw std::runtime_error("Jelly Object not found.");
-	// Initialize player
-	// player_start_at = 
 
 	// create a player transform:
 	scene.transforms.emplace_back();		 // so make room in the back
 	player.transform = &scene.transforms.back(); // then construce & push_back the scene's transform
-
+	jelly_player.transform = &scene.transforms.back(); // then construce & push_back the scene's transform
 
 	// create a player camera attached to a child of the player transform:
 	scene.transforms.emplace_back();
@@ -101,24 +88,11 @@ PlayMode::PlayMode() : scene(*phonebank_scene)
 	player.camera->transform->rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
 	// set player position to a random pose
-
-	mt.seed(std::random_device()());
-	std::uniform_real_distribution<float> player_start_position_rand(-15.0f, 15.0f);
+	std::uniform_real_distribution<float> player_start_position_rand(-8.0f, 8.0f);
 
 	player.transform->position = glm::vec3(player_start_position_rand(mt), player_start_position_rand(mt), player_start_position_rand(mt)); // set its position
-	std::cout << "Player start at: " << player.transform->position.x << ", " << player.transform->position.y << ", " << player.transform->position.z << std::endl;
 
-	// start player walking at nearest walk point:
-	player.at = walkmesh->nearest_walk_point(player.transform->position);
-
-	// save player's initial position
-	player_start_at = player.at.indices;
-	std::cout << "initial triangle is: " << player_start_at.x << ", " << player_start_at.y << ", " << player_start_at.z << std::endl;
-
-	// print player.transform->position
-	std::cout<< "!!!Player is at: " << player.transform->position.x << ", " << player.transform->position.y << ", " << player.transform->position.z << std::endl;
-	std::cout << "Ind: " << player.at.indices[0] << ", " << player.at.indices[1] << ", " << player.at.indices[2] << std::endl;
-	// std::cout << "weights: " << player.at.weights[0] << ", " << player.at.weights[1] << ", " << player.at.weights[2] << std::endl;
+	level_up();
 }
 
 PlayMode::~PlayMode()
@@ -158,6 +132,23 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			down.downs += 1;
 			down.pressed = true;
 			return true;
+		}
+		else if (evt.key.keysym.sym == SDLK_SPACE)
+		{
+			std::cout << "state: " << state << std::endl;
+			if (state == 1){
+				// check if player is at the starting location 
+				std::cout << "Player is at: " << player.at.indices[0] << ", " << player.at.indices[1] << ", " << player.at.indices[2] << std::endl;
+				std:: cout << "Player start at: " << player_start_at.x << ", " << player_start_at.y << ", " << player_start_at.z << std::endl;
+				if (player.at.indices == player_start_at){
+					// level up
+					level_up();
+				}
+				// else{
+					// score -=1;
+				// }
+				// state = 0;
+			}
 		}
 	}
 	else if (evt.type == SDL_KEYUP)
@@ -215,19 +206,60 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	return false;
 }
 
+void PlayMode::level_up(){
+	
+	// add score
+	score += 1;
+	display_str = "Score: " + std::to_string(score);
+
+	std::mt19937 mt(static_cast<std::mt19937::result_type>(std::time(nullptr)));
+
+	// set player position to a random pose
+	std::uniform_real_distribution<float> player_start_position_rand(-8.0f, 8.0f);
+	player.transform->position = glm::vec3(player_start_position_rand(mt), player_start_position_rand(mt), player_start_position_rand(mt)); // set its position
+	
+	player.at = walkmesh->nearest_walk_point(player.transform->position);
+
+	// save player's initial position
+	player_start_at = player.at.indices;
+
+	// choose Jelly Location
+	std::uniform_real_distribution<float> jelly_start_position_rand(-8.0f, 8.0f);
+	jelly_player.transform->position = glm::vec3(jelly_start_position_rand(mt), jelly_start_position_rand(mt), 0.3);
+	jelly_player.at = walkmesh->nearest_walk_point(jelly_player.transform->position);
+
+	jelly->position = walkmesh->to_world_point(jelly_player.at);
+	jelly->position.z = 0.2;
+	state = 0;
+}
+
+bool PlayMode::check_collision()
+{
+	// check if player is close enough to jelly
+	glm::vec3 playerPos = player.transform->position;
+	glm::vec3 jellyPos = jelly->position;
+	float dist = glm::distance(playerPos, jellyPos);
+	if (dist < 0.5f)
+		return true;
+	else
+		return false;
+}
 void PlayMode::update(float elapsed)
 {
-
-	// print where the player is at rn
-	{
-		glm::vec3 playerPos = player.transform->position;
-		std::cout << "Player is at: " << playerPos.x << ", " << playerPos.y << ", " << playerPos.z << std::endl;
-		std::cout << "Ind: " << player.at.indices[0] << ", " << player.at.indices[1] << ", " << player.at.indices[2] << std::endl;
+	if (score < 0){
+		display_str = "Game Over, Final Score: "+ std::to_string(score);
+		// exit(0);
+	}
+	if (check_collision()){
+		std::printf("Ate Jelly!\n");
+		// remove Jelly
+		jelly->position.z = -30.0f;
+		state = 1; // ready to accept space bar
 	}
 	// player walking:
 	{
 		// combine inputs into a move:
-		constexpr float PlayerSpeed = 3.0f;
+		constexpr float PlayerSpeed = 5.0f;
 		glm::vec2 move = glm::vec2(0.0f);
 		if (left.pressed && !right.pressed)
 			move.x = -1.0f;
@@ -376,12 +408,12 @@ void PlayMode::draw(glm::uvec2 const &drawable_size)
 			0.0f, 0.0f, 0.0f, 1.0f));
 
 		constexpr float H = 0.09f;
-		lines.draw_text("Mouse motion looks; WASD moves; escape ungrabs mouse",
+		lines.draw_text(display_str,
 						glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
 						glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
 		float ofs = 2.0f / drawable_size.y;
-		lines.draw_text("Mouse motion looks; WASD moves; escape ungrabs mouse",
+		lines.draw_text(display_str,
 						glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + +0.1f * H + ofs, 0.0),
 						glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 						glm::u8vec4(0xff, 0xff, 0xff, 0x00));

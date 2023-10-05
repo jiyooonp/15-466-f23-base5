@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <deque>
+#include <ctime>
 
 struct PlayMode : Mode {
 	PlayMode();
@@ -34,9 +35,15 @@ struct PlayMode : Mode {
 	uint8_t stepped_over = 0;
 	// WalkPoint jelly_at;
 
-	// uint8_t score = 0;
+	uint8_t score = 0;
 	// bool player_dead = false;
 
+	int state = 0;
+
+	void level_up();
+	bool check_collision();
+
+	std::string display_str = "Score: 0";
 
 		// player info:
 		struct Player
@@ -46,5 +53,5 @@ struct PlayMode : Mode {
 		Scene::Transform *transform = nullptr;
 		//camera is at player's head and will be pitched by mouse up/down motion:
 		Scene::Camera *camera = nullptr;
-	} player;
+	} player, jelly_player;
 };
