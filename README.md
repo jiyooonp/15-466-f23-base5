@@ -1,8 +1,8 @@
-# (TODO: your game's title)
+# Return to your seat!
 
-Author: (TODO: your name)
+Author: Jiyoon Park
 
-Design: (TODO: In two sentences or fewer, describe what is new and interesting about your game.)
+Design: Every level, you have to collect all the Jellys and come back to your original position. The harder the level, the more jellys you have to collect. It really makes you question your memorization abilities :)  
 
 Screen Shot:
 
@@ -10,9 +10,15 @@ Screen Shot:
 
 How To Play:
 
-(TODO: describe the controls and (if needed) goals/strategy.)
+- You use the uo, down, right, left arrows to naviagte aroung the map. You can also use your mouse to look around you. (Notice, you are represented by the red dot!). 
 
-Sources: (TODO: list a source URL for any assets you did not create yourself. Make sure you have a license for the asset.)
+- You have to collect all the jellys and come back to your position and press __SPACE__ to move up to the next level
+
+- If you are not in the right location, your score will go down unitl you reach 0, and die
+
+- Press R to restart the game!
+
+Sources: -
 
 This game was built with [NEST](NEST.md).
 

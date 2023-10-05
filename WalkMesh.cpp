@@ -45,6 +45,7 @@ glm::vec3 barycentric_weights(glm::vec3 const &a, glm::vec3 const &b, glm::vec3 
 	// TODO: implement!
 	// https://en.wikipedia.org/wiki/Barycentric_coordinate_system#Barycentric_coordinates_on_triangles
 	// edge approach
+
 	glm::vec3 v0 = b-a, v1 = c-a, v2 = pt-a;
 
 	float d00 = glm::dot(v0, v0);
@@ -143,7 +144,7 @@ void WalkMesh::walk_in_triangle(WalkPoint const &start, glm::vec3 const &step, W
 	glm::vec3 step_coords;
 	{ // project 'step' into a barycentric-coordinates direction:
 		// TODO
-		step_coords = barycentric_weights(vertices[start.indices.x], vertices[start.indices.y], vertices[start.indices.z], step) - barycentric_weights(vertices[start.indices.x], vertices[start.indices.y], vertices[start.indices.z], glm::vec3(0.0f));
+		step_coords = barycentric_weights(vertices[start.indices.x], vertices[start.indices.y], vertices[start.indices.z], step) - barycentric_weights(vertices[start.indices.x], vertices[start.indices.y], vertices[start.indices.z], glm::vec3(0.0f)); // difference with 0.0
 	}
 
 	// if no edge is crossed, event will just be taking the whole step:
@@ -153,11 +154,11 @@ void WalkMesh::walk_in_triangle(WalkPoint const &start, glm::vec3 const &step, W
 	// figure out which edge (if any) is crossed first.
 	//  set time and end appropriately.
 	// TODO
-	if (start.weights.x + step_coords.x <= 0)
+	if (start.weights.x  <= -step_coords.x)
 		time = glm::min(time, -(start.weights.x / step_coords.x));
-	if (start.weights.y + step_coords.y <= 0)
+	if (start.weights.y <= - step_coords.y)
 		time = glm::min(time, -(start.weights.y / step_coords.y));
-	if (start.weights.z + step_coords.z <= 0)
+	if (start.weights.z <= - step_coords.z)
 		time = glm::min(time, -(start.weights.z / step_coords.z));
 
 	end.weights = start.weights + time * step_coords;
@@ -167,7 +168,7 @@ void WalkMesh::walk_in_triangle(WalkPoint const &start, glm::vec3 const &step, W
 	//  then wp.weights.z == 0.0f (so will likely need to re-order the indices)
 
 	if (end.weights.x < 1e-6f){
-		end.indices = glm::uvec3(start.indices.y, start.indices.z, start.indices.x);
+		end.indices = glm::uvec3(start.indices.y, start.indices.z, start.indices.x); // switch index
 		end.weights = glm::vec3(end.weights.y, end.weights.z, 0.0f);
 	}
 	else if (end.weights.y < 1e-6f){

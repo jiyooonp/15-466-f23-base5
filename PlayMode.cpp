@@ -51,24 +51,17 @@ Load<WalkMeshes> phonebank_walkmeshes(LoadTagDefault, []() -> WalkMeshes const *
 
 PlayMode::PlayMode() : scene(*phonebank_scene)
 {
-	// initialize start position
-	std::mt19937 mt(static_cast<std::mt19937::result_type>(std::time(nullptr)));
-
-	std::uniform_int_distribution<int> player_start_triangle_rand(0, walkmesh->triangles.size()-1);
-
-	player_start_at = walkmesh->triangles[player_start_triangle_rand(mt)];
-
-	std::cout << "Player start at: " << player_start_at.x << ", " << player_start_at.y << ", " << player_start_at.z << std::endl;
-
-
 	for (auto &transform : scene.transforms)
 	{
 		if (transform.name == "Jelly")
 			jelly = &transform;
-		std::cout << "!!!!!!!!!" << transform.name << std::endl;
+		if (transform.name == "Player")
+			player_body = &transform;
 	}
 	if (jelly == nullptr)
 		throw std::runtime_error("Jelly Object not found.");
+	if (player_body == nullptr)
+		throw std::runtime_error("Player Object not found.");
 
 	// create a player transform:
 	scene.transforms.emplace_back();		 // so make room in the back
@@ -83,15 +76,11 @@ PlayMode::PlayMode() : scene(*phonebank_scene)
 	player.camera->near = 0.01f;
 	player.camera->transform->parent = player.transform;
 	// player's eyes are 1.8 units above the ground:
-	player.camera->transform->position = glm::vec3(0.0f, 0.0f, 0.5f);
+	player.camera->transform->position = glm::vec3(0.0f, 0.0f, 1.0f);
 	// rotate camera facing direction (-z) to player facing direction (+y):
 	player.camera->transform->rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
-	// set player position to a random pose
-	std::uniform_real_distribution<float> player_start_position_rand(-8.0f, 8.0f);
-
-	player.transform->position = glm::vec3(player_start_position_rand(mt), player_start_position_rand(mt), player_start_position_rand(mt)); // set its position
-
+	jelly_positions.push(glm::vec3(0.0f, 0.0f, 0.3f));
 	level_up();
 }
 
@@ -135,20 +124,24 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 		}
 		else if (evt.key.keysym.sym == SDLK_SPACE)
 		{
-			std::cout << "state: " << state << std::endl;
 			if (state == 1){
-				// check if player is at the starting location 
-				std::cout << "Player is at: " << player.at.indices[0] << ", " << player.at.indices[1] << ", " << player.at.indices[2] << std::endl;
-				std:: cout << "Player start at: " << player_start_at.x << ", " << player_start_at.y << ", " << player_start_at.z << std::endl;
 				if (player.at.indices == player_start_at){
-					// level up
 					level_up();
+					state = 0;
 				}
-				// else{
-					// score -=1;
-				// }
-				// state = 0;
+				else{
+					score -=1;
+				}
 			}
+		}
+		else if (evt.key.keysym.sym == SDLK_r)
+		{
+			player_dead = false;
+			score = 2;
+			level = 0;
+			state = 0;
+			level_up();
+
 		}
 	}
 	else if (evt.type == SDL_KEYUP)
@@ -209,27 +202,39 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 void PlayMode::level_up(){
 	
 	// add score
-	score += 1;
+	score += level;
+	level +=1;
 	display_str = "Score: " + std::to_string(score);
 
 	std::mt19937 mt(static_cast<std::mt19937::result_type>(std::time(nullptr)));
-
 	// set player position to a random pose
-	std::uniform_real_distribution<float> player_start_position_rand(-8.0f, 8.0f);
+	std::uniform_real_distribution<float> player_start_position_rand(-2.5f, 2.5f);
 	player.transform->position = glm::vec3(player_start_position_rand(mt), player_start_position_rand(mt), player_start_position_rand(mt)); // set its position
 	
 	player.at = walkmesh->nearest_walk_point(player.transform->position);
-
-	// save player's initial position
+	player_body->position = walkmesh->to_world_point(player.at);
+		// save player's initial position
 	player_start_at = player.at.indices;
 
 	// choose Jelly Location
-	std::uniform_real_distribution<float> jelly_start_position_rand(-8.0f, 8.0f);
-	jelly_player.transform->position = glm::vec3(jelly_start_position_rand(mt), jelly_start_position_rand(mt), 0.3);
+	std::uniform_real_distribution<float> jelly_start_position_rand(-2.5f, 2.5f);
+	for ( int i = 0; i < level; i++)
+		jelly_positions.push(glm::vec3(jelly_start_position_rand(mt), jelly_start_position_rand(mt), 0.3));
+
+	jelly_player.transform->position = jelly_positions.top();
+	jelly_positions.pop();
+
 	jelly_player.at = walkmesh->nearest_walk_point(jelly_player.transform->position);
+
+	while (jelly_player.at.indices == player.at.indices)
+	{
+		
+		jelly_player.at = walkmesh->nearest_walk_point(glm::vec3(jelly_start_position_rand(mt), jelly_start_position_rand(mt), 0.3));
+	}
 
 	jelly->position = walkmesh->to_world_point(jelly_player.at);
 	jelly->position.z = 0.2;
+
 	state = 0;
 }
 
@@ -246,15 +251,44 @@ bool PlayMode::check_collision()
 }
 void PlayMode::update(float elapsed)
 {
-	if (score < 0){
-		display_str = "Game Over, Final Score: "+ std::to_string(score);
-		// exit(0);
+	if (player_dead	){
+		return;
+	}
+		if (score <= 0)
+		{
+			display_str = "Game Over, Final Score: " + std::to_string(score) + " Press R to restart!";
+			player_dead = true;
+		}
+		else{
+		display_str = "Score: " + std::to_string(score) + " | Level: " + std::to_string(level);
 	}
 	if (check_collision()){
-		std::printf("Ate Jelly!\n");
+
 		// remove Jelly
-		jelly->position.z = -30.0f;
-		state = 1; // ready to accept space bar
+		if (!jelly_positions.empty())
+		{
+			jelly_player.transform->position = jelly_positions.top();
+			jelly_positions.pop();
+
+			jelly_player.at = walkmesh->nearest_walk_point(jelly_player.transform->position);
+			std::mt19937 mt(static_cast<std::mt19937::result_type>(std::time(nullptr)));
+			std::uniform_real_distribution<float> jelly_start_position_rand(-2.5f, 2.5f);
+
+			while (jelly_player.at.indices == player.at.indices)
+			{
+
+				jelly_player.at = walkmesh->nearest_walk_point(glm::vec3(jelly_start_position_rand(mt), jelly_start_position_rand(mt), 0.3));
+			}
+
+			jelly->position = walkmesh->to_world_point(jelly_player.at);
+			jelly->position.z = 0.2;
+		}
+		else{
+			jelly->position.z = 40.0f;
+
+			state = 1; // ready to accept space bar
+		}
+		
 	}
 	// player walking:
 	{
@@ -329,6 +363,8 @@ void PlayMode::update(float elapsed)
 				}
 			}
 		}
+		player_body->position = walkmesh->to_world_point(player.at);
+		player_body->position.z = 0.2;
 
 		if (remain != glm::vec3(0.0f))
 		{
@@ -386,17 +422,18 @@ void PlayMode::draw(glm::uvec2 const &drawable_size)
 
 	scene.draw(*player.camera);
 
-	/* In case you are wondering if your walkmesh is lining up with your scene, try:
+	// In case you are wondering if your walkmesh is lining up with your scene, try:
+	if (level < 3)
 	{
 		glDisable(GL_DEPTH_TEST);
 		DrawLines lines(player.camera->make_projection() * glm::mat4(player.camera->transform->make_world_to_local()));
 		for (auto const &tri : walkmesh->triangles) {
-			lines.draw(walkmesh->vertices[tri.x], walkmesh->vertices[tri.y], glm::u8vec4(0x88, 0x00, 0xff, 0xff));
-			lines.draw(walkmesh->vertices[tri.y], walkmesh->vertices[tri.z], glm::u8vec4(0x88, 0x00, 0xff, 0xff));
-			lines.draw(walkmesh->vertices[tri.z], walkmesh->vertices[tri.x], glm::u8vec4(0x88, 0x00, 0xff, 0xff));
+			lines.draw(walkmesh->vertices[tri.x], walkmesh->vertices[tri.y], glm::u8vec4(0xff, 0xff, 0xff, 0xff));
+			lines.draw(walkmesh->vertices[tri.y], walkmesh->vertices[tri.z], glm::u8vec4(0xff, 0xff, 0xff, 0xff));
+			lines.draw(walkmesh->vertices[tri.z], walkmesh->vertices[tri.x], glm::u8vec4(0xff, 0xff, 0xff, 0xff));
 		}
 	}
-	*/
+	
 
 	{ // use DrawLines to overlay some text:
 		glDisable(GL_DEPTH_TEST);

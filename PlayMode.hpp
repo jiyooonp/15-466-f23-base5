@@ -8,6 +8,7 @@
 #include <vector>
 #include <deque>
 #include <ctime>
+#include <stack>
 
 struct PlayMode : Mode {
 	PlayMode();
@@ -29,21 +30,23 @@ struct PlayMode : Mode {
 	//local copy of the game scene (so code can change it during gameplay):
 	Scene scene;
 	Scene::Transform *jelly = nullptr;
+	Scene::Transform *player_body = nullptr;
 
 	// initialize on every stage
 	glm::uvec3 player_start_at;
 	uint8_t stepped_over = 0;
-	// WalkPoint jelly_at;
+	std::stack<glm::vec3> jelly_positions;
 
-	uint8_t score = 0;
-	// bool player_dead = false;
+	int score = 2;
+	bool player_dead = false;
 
 	int state = 0;
+	int level = 0;
 
 	void level_up();
 	bool check_collision();
 
-	std::string display_str = "Score: 0";
+	std::string display_str = "Score: 0 | Level: 1 ";
 
 		// player info:
 		struct Player
