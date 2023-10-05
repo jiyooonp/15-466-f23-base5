@@ -27,9 +27,20 @@ struct PlayMode : Mode {
 
 	//local copy of the game scene (so code can change it during gameplay):
 	Scene scene;
+	Scene::Transform *jelly = nullptr;
 
-	//player info:
-	struct Player {
+	// initialize on every stage
+	glm::uvec3 player_start_at;
+	uint8_t stepped_over = 0;
+	// WalkPoint jelly_at;
+
+	// uint8_t score = 0;
+	// bool player_dead = false;
+
+
+		// player info:
+		struct Player
+	{
 		WalkPoint at;
 		//transform is at player's feet and will be yawed by mouse left/right motion:
 		Scene::Transform *transform = nullptr;
